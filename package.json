@@ -1,0 +1,13 @@
+{
+  "name": "coding-agent-eval-experiments",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A minimal, credential-free Promptfoo evaluation project.",
+  "scripts": {
+    "eval": "PROMPTFOO_CONFIG_DIR=.promptfoo PROMPTFOO_DISABLE_TELEMETRY=true promptfoo eval -c promptfooconfig.yaml --no-cache --no-write --no-share",
+    "test": "npm run eval"
+  },
+  "devDependencies": {
+    "promptfoo": "^0.120.19"
+  }
+}

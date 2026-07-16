@@ -1,0 +1,21 @@
+description: Credential-free Promptfoo smoke evaluation
+
+prompts:
+  - 'Say hello to {{name}}.'
+
+providers:
+  - echo
+
+tests:
+  - description: Greets the world
+    vars:
+      name: World
+    assert:
+      - type: equals
+        value: Say hello to World.
+  - description: Greets Promptfoo
+    vars:
+      name: Promptfoo
+    assert:
+      - type: equals
+        value: Say hello to Promptfoo.
