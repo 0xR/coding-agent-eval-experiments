@@ -111,8 +111,8 @@ The grader has its own fast, offline unit tests (no API keys, no agents):
 npm run test:grader
 ```
 
-> **Note:** a Codex **ChatGPT account** only exposes a limited set of models
-> (here `gpt-5.6-sol`, the CLI default), so the Codex tiers vary **reasoning
-> effort** (`high` vs `low`) rather than the model. Model ids and supported
-> effort levels are account-specific — adjust them in
+> **Note:** the Codex comparison uses the flagship `gpt-5.6-sol` model and the
+> cost-sensitive `gpt-5.6-luna` model, both through the Codex CLI's ChatGPT
+> authentication. Model ids and supported effort levels are account-specific;
+> adjust them in
 > `promptfooconfig.hello-world.yaml` if the Codex CLI rejects them.
