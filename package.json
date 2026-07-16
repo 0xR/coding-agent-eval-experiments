@@ -2,12 +2,15 @@
   "name": "coding-agent-eval-experiments",
   "version": "1.0.0",
   "private": true,
-  "description": "A minimal, credential-free Promptfoo evaluation project.",
+  "description": "A minimal Promptfoo evaluation project with echo and OpenAI smoke tests.",
   "scripts": {
     "eval": "PROMPTFOO_CONFIG_DIR=.promptfoo PROMPTFOO_DISABLE_TELEMETRY=true promptfoo eval -c promptfooconfig.yaml --no-cache --no-write --no-share",
+    "eval:openai": "PROMPTFOO_CONFIG_DIR=.promptfoo PROMPTFOO_DISABLE_TELEMETRY=true promptfoo eval -c promptfooconfig.openai.yaml --env-file .env --no-cache --no-write --no-share",
+    "eval:anthropic": "PROMPTFOO_CONFIG_DIR=.promptfoo PROMPTFOO_DISABLE_TELEMETRY=true promptfoo eval -c promptfooconfig.anthropic.yaml --env-file .env --no-cache --no-write --no-share",
     "test": "npm run eval"
   },
   "devDependencies": {
+    "@openai/codex-sdk": "^0.144.5",
     "promptfoo": "^0.120.19"
   }
 }
