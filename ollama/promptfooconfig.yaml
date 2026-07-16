@@ -1,0 +1,26 @@
+providers:
+  - ollama:chat:gemma4:latest
+  - ollama:chat:deepseek-r1:1.5b
+
+prompts:
+  - 'Convert the following English text to {{language}}: {{input}}'
+
+tests:
+  - vars:
+      language: French
+      input: Hello world
+    assert:
+      - type: contains
+        value: 'Bonjour le monde'
+  - vars:
+      language: Spanish
+      input: Where is the library?
+    assert:
+      - type: icontains
+        value: 'Dónde está la biblioteca'
+  - vars:
+      language: Dutch
+      input: Where is the closest shop?
+    assert:
+      - type: icontains
+        value: 'Waar is de dichtstbijzijnde winkel'
