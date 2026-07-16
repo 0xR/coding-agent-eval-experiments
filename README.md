@@ -1,16 +1,15 @@
 # Coding Agent Eval Experiments
 
-A minimal [Promptfoo](https://www.promptfoo.dev/) project with smoke evaluations:
+[Promptfoo](https://www.promptfoo.dev/) evaluations for coding agents.
 
-- A deterministic, credential-free evaluation using Promptfoo's built-in `echo` provider.
-- An OpenAI Responses API evaluation using `gpt-4.1-mini` and `OPENAI_API_KEY` from `.env`.
-- An Anthropic Messages API evaluation using `claude-haiku-4-5` and `ANTHROPIC_API_KEY` from `.env`.
-- A **coding-agent** evaluation where Claude Code and Codex each build a Node.js hello-world project, graded on whether `npm start` prints "hello world". See [below](#run-the-coding-agent-evaluation).
+- A deterministic, credential-free smoke eval using Promptfoo's built-in `echo` provider (`promptfooconfig.yaml`).
+- A **PR code-review eval** where Claude Code and Codex review a real pull request and an LLM judge checks whether they find a set of planted issues (`promptfooconfig.review.yaml`).
 
 ## Requirements
 
 - Node.js 20 or newer
 - npm
+- An SSH key registered with GitHub that can read `git@github.com:xebia/xke-pwa.git` (for the review eval)
 
 ## Setup
 
@@ -18,101 +17,73 @@ A minimal [Promptfoo](https://www.promptfoo.dev/) project with smoke evaluations
 npm install
 ```
 
-## Run the evaluation
+## Run the smoke evaluation
 
 ```bash
 npm test
 ```
 
-You can also run the equivalent explicit command:
+## The PR code-review evaluation
 
-```bash
-npm run eval
-```
+Four coding agents review **PR #622 "Add Push Messages"** (branch `feature/push`) of
+[`xke-pwa`](https://github.com/xebia/xke-pwa) and an LLM judge grades whether each agent
+surfaced the issues listed in [`pr-622-review-fixes.md`](./pr-622-review-fixes.md).
 
-Both tests should pass. Edit `promptfooconfig.yaml` to add prompts, providers, test variables, and assertions for real evaluations.
-
-## Run the OpenAI evaluation
-
-Create a local `.env` file containing your API key:
-
-```dotenv
-OPENAI_API_KEY=your_api_key_here
-```
-
-Then run:
-
-```bash
-npm run eval:openai
-```
-
-The `.env` file and Promptfoo's local state directory are ignored by Git. The OpenAI smoke test uses the Responses API and checks that the model follows an exact-output instruction.
-
-## Run the Anthropic evaluation
-
-Add your Anthropic API key to the local `.env` file:
-
-```dotenv
-ANTHROPIC_API_KEY=your_api_key_here
-```
-
-Then run:
-
-```bash
-npm run eval:anthropic
-```
-
-The Anthropic smoke test uses the Messages API (`claude-haiku-4-5`) and checks that the model follows an exact-output instruction. Edit `promptfooconfig.anthropic.yaml` to add your own prompts, providers, and assertions.
-
-## Run the coding-agent evaluation
-
-This eval asks four coding agents to build a Node.js hello-world project and grades the result:
+Agents under test (same matrix as the smoke agent evals):
 
 - **Claude Code** (via `@anthropic-ai/claude-agent-sdk`) — `claude-opus-4-8` and `claude-haiku-4-5`
-- **Codex** (via `@openai/codex-sdk`, using your `codex login` session) — `gpt-5.6-sol`
-  at `high` and `low` reasoning effort
+- **Codex** (via `@openai/codex-sdk`, using your `codex login` session) — `gpt-5.6-sol` at
+  `high` and `gpt-5.6-luna` at `low` reasoning effort
 
-Each agent runs in its own empty directory under `runs/` and gets the same prompt:
+Each agent is given the vendored [code-review skill](./skills/code-review/SKILL.md)
+(from [mattpocock/skills](https://github.com/mattpocock/skills), external references
+stripped) injected into its prompt, and reviews the `feature/push` diff.
 
-> Create a Node.js 'hello world' project in the current directory. It should be
-> runnable with `npm start`, which should print hello world to the console.
+### How it works
 
-The grader (`src/grader.js`) enforces a strict contract on whatever the agent left behind:
+1. **Clone once, out of band.** `npm run setup:review` clones `xke-pwa` into `./xke-pwa`
+   (git-ignored) and checks out `feature/push`. It is idempotent and does **not** auto-refresh —
+   delete `./xke-pwa` to force a fresh clone.
+2. **Review once per agent.** The custom provider (`providers/agent.js`) runs each agent once
+   in the shared, read-only checkout with a prompt built by `src/review-prompt.js` (skill +
+   three-dot diff against the base branch). The provider returns the agent's **review text**.
+3. **Judge each planted issue.** The single review text is graded by **four `llm-rubric`
+   assertions** — one per comment in `pr-622-review-fixes.md`. Each passes when the agent
+   **identifies the problem and its location** (the exact fix wording is not required). The
+   judge is pinned to `anthropic:messages:claude-haiku-4-5`.
 
-1. `package.json` exists
-2. at least one `.js` file exists
-3. a `start` script is defined
-4. `npm start` prints "hello world" (case-insensitive) **and exits 0 within 30s**
-   — a process that never exits is a failure
+### Run it
 
-Claude Code authenticates with `ANTHROPIC_API_KEY` from `.env`; Codex uses your
-existing `codex login` session (run `codex login status` to check):
+```bash
+npm run setup:review   # once (or after deleting ./xke-pwa)
+npm run eval:review
+```
+
+Claude Code and the LLM judge authenticate with `ANTHROPIC_API_KEY` from `.env`; Codex uses
+your existing `codex login` session (check with `codex login status`):
 
 ```dotenv
 ANTHROPIC_API_KEY=your_api_key_here
 ```
 
-Then run:
+The base branch to diff against defaults to `main`. Override with env vars if needed:
+`REVIEW_BRANCH`, `REVIEW_BASE_BRANCH`, `REVIEW_REPO_DIR`.
+
+> **Note:** the Codex comparison uses account-specific model ids (`gpt-5.6-sol`,
+> `gpt-5.6-luna`) through the Codex CLI's ChatGPT authentication. Adjust them in
+> `promptfooconfig.review.yaml` if the Codex CLI rejects them.
+
+## Unit tests
+
+The pure logic behind the review eval (the prompt builder and the repo-ready guard) has fast,
+offline unit tests — no API keys, no agents, no network:
 
 ```bash
-npm run eval:agents
+npm run test:unit
 ```
 
-Each run directory is deleted afterward by the `afterEach` hook in `hooks.js`. To
-keep them for inspection, set `KEEP_RUNS=1`:
+## View results
 
 ```bash
-KEEP_RUNS=1 npm run eval:agents
+npm run view
 ```
-
-The grader has its own fast, offline unit tests (no API keys, no agents):
-
-```bash
-npm run test:grader
-```
-
-> **Note:** the Codex comparison uses the flagship `gpt-5.6-sol` model and the
-> cost-sensitive `gpt-5.6-luna` model, both through the Codex CLI's ChatGPT
-> authentication. Model ids and supported effort levels are account-specific;
-> adjust them in
-> `promptfooconfig.hello-world.yaml` if the Codex CLI rejects them.

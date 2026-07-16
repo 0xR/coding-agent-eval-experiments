@@ -1,26 +1,24 @@
-// Promptfoo custom provider that runs a coding agent (Claude Code or Codex)
-// inside a fresh, empty working directory and returns that directory's absolute
-// path as the provider output. The hello-world assertion then grades the files
-// the agent left behind, and the afterEach hook in hooks.js cleans the dir up.
+// Promptfoo custom provider that runs a coding agent (Claude Code or Codex) as a
+// PR reviewer. The agent reviews the diff of the branch under review in the
+// shared, read-only ./xke-pwa checkout (cloned once by `npm run setup:review`)
+// using the vendored code-review skill, and the provider returns the agent's
+// review TEXT as its output. The four llm-rubric assertions in
+// promptfooconfig.review.yaml then judge that text, one per planted comment.
 //
-// Configured (four times) from promptfooconfig.hello-world.yaml via:
+// Configured (four times) from promptfooconfig.review.yaml via:
 //   - id: file://providers/agent.js
 //     label: <human label>
 //     config: { agent: 'claude' | 'codex', model: '<model id>' }
 
-const fs = require('node:fs');
 const path = require('node:path');
-const crypto = require('node:crypto');
 
-const AGENT_TIMEOUT_MS = 120_000;
-const RUNS_DIR = path.resolve(process.cwd(), 'runs');
+const { assertRepoReady } = require('../src/repo');
+const { buildReviewPrompt, loadSkill } = require('../src/review-prompt');
 
-function makeRunDir(agent, model) {
-  const slug = String(model).replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-  const dir = path.join(RUNS_DIR, `${agent}-${slug}-${crypto.randomUUID().slice(0, 8)}`);
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
-}
+const AGENT_TIMEOUT_MS = 300_000;
+const REPO_DIR = path.resolve(process.cwd(), process.env.REVIEW_REPO_DIR || 'xke-pwa');
+const REVIEW_BRANCH = process.env.REVIEW_BRANCH || 'feature/push';
+const REVIEW_BASE_BRANCH = process.env.REVIEW_BASE_BRANCH || 'main';
 
 async function runClaude({ prompt, model, dir }) {
   const { query } = await import('@anthropic-ai/claude-agent-sdk');
@@ -93,25 +91,37 @@ class AgentProvider {
     return this.providerId;
   }
 
-  async callApi(prompt) {
+  async callApi() {
     if (this.agent !== 'claude' && this.agent !== 'codex') {
       return { error: `unknown agent "${this.agent}" (expected "claude" or "codex")` };
     }
-    const dir = makeRunDir(this.agent, this.model);
+
+    let prompt;
+    try {
+      // Fail fast with a clear message if the checkout is missing.
+      assertRepoReady(REPO_DIR);
+      prompt = buildReviewPrompt({
+        skillText: loadSkill(),
+        branch: REVIEW_BRANCH,
+        baseBranch: REVIEW_BASE_BRANCH,
+      });
+    } catch (err) {
+      return { error: err.message };
+    }
+
     try {
       const runner = this.agent === 'claude' ? runClaude : runCodex;
+      // The agents run in the shared, read-only checkout; the prompt forbids
+      // edits. The output IS the review text, which the assertions grade.
       const { resultText, cost } = await runner({
         prompt,
         model: this.model,
         reasoningEffort: this.reasoningEffort,
-        dir,
+        dir: REPO_DIR,
       });
-      // The output IS the working directory; the assertion grades its contents.
-      return { output: dir, cost, metadata: { runDir: dir, agentSummary: resultText } };
+      return { output: resultText, cost, metadata: { repoDir: REPO_DIR } };
     } catch (err) {
-      // Return the dir too, so cleanup can still find it and the failure is
-      // attributable, but surface the error so auth/timeout issues are visible.
-      return { error: `${this.agent} run failed: ${err.message}`, output: dir, metadata: { runDir: dir } };
+      return { error: `${this.agent} run failed: ${err.message}` };
     }
   }
 }

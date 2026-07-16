@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: Coding agents review PR #622 of xke-pwa; judge whether they find the planted issues
+
+# The provider ignores this prompt and builds the real review prompt itself
+# (src/review-prompt.js: vendored code-review skill + feature/push diff target).
+# promptfoo still requires a prompt entry, so this is a placeholder.
+prompts:
+  - 'Review the pull request.'
+
+providers:
+  - id: file://providers/agent.js
+    label: claude-code-opus-4-8
+    config:
+      agent: claude
+      model: claude-opus-4-8
+  - id: file://providers/agent.js
+    label: claude-code-haiku-4-5
+    config:
+      agent: claude
+      model: claude-haiku-4-5-20251001
+  # Compare the flagship Sol model with the cost-sensitive Luna model.
+  - id: file://providers/agent.js
+    label: codex-sol-high
+    config:
+      agent: codex
+      model: gpt-5.6-sol
+      reasoningEffort: high
+  - id: file://providers/agent.js
+    label: codex-luna-low
+    config:
+      agent: codex
+      model: gpt-5.6-luna
+      reasoningEffort: low
+
+# All model-graded assertions use one pinned judge so grading is stable.
+defaultTest:
+  options:
+    provider: anthropic:messages:claude-haiku-4-5
+
+# One test per provider: the agent runs the review ONCE, and the four
+# assertions below all judge that single review output — one per planted
+# comment in pr-622-review-fixes.md. Each rubric passes when the agent
+# identifies the problem and its location (the exact fix wording is NOT
+# required — strictness level A).
+tests:
+  - description: Agent's review of PR #622 surfaces the planted issues
+    assert:
+      - type: llm-rubric
+        metric: typo-received
+        value: |
+          The code review flags a misspelling of the word "received" (spelled
+          "receieved") in the file `functions/src/notify.ts`. PASS if the review
+          clearly points out this typo and identifies notify.ts as the location.
+          The reviewer does not need to quote both occurrences or propose the exact
+          correction. FAIL if the typo is not mentioned, or is attributed to a
+          different file.
+
+      - type: llm-rubric
+        metric: mysterious-name-platform
+        value: |
+          The code review flags that the field named `platform` in
+          `src/components/notifications/NotificationRegistration.tsx` is a
+          misleading / mysterious name, because it actually stores a full
+          user-agent string (`navigator.userAgent`) rather than a platform.
+          PASS if the review calls out this naming problem on that field and its
+          location. A rename suggestion is welcome but not required. FAIL if the
+          review only mentions `platform` incidentally without flagging the name
+          as misleading, or does not mention it at all.
+
+      - type: llm-rubric
+        metric: grammar-notification-are
+        value: |
+          The code review flags the grammatical error "Notification are:" (should
+          be "Notifications are:") in
+          `src/components/notification-status/NotificationStatus.tsx`. PASS if the
+          review points out this wording/grammar issue and its location. FAIL if it
+          is not mentioned.
+
+      - type: llm-rubric
+        metric: duplicated-predicate
+        value: |
+          The code review flags that the comparison
+          `storedToken.platform !== navigator.userAgent` is duplicated across
+          branches in `src/components/notifications/NotificationRegistration.tsx`
+          (a Duplicated Code smell) and should be extracted into a single named
+          helper/variable and reused. PASS if the review identifies this repeated
+          predicate / duplication and its location. FAIL if duplication of this
+          comparison is not mentioned.
