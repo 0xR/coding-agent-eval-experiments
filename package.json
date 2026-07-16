@@ -4,8 +4,9 @@
   "private": true,
   "description": "A minimal Promptfoo evaluation project with echo and OpenAI smoke tests.",
   "scripts": {
-    "eval": "PROMPTFOO_CONFIG_DIR=.promptfoo PROMPTFOO_DISABLE_TELEMETRY=true promptfoo eval -c promptfooconfig.yaml --no-cache --no-write --no-share",
-    "eval:agents": "PROMPTFOO_CONFIG_DIR=.promptfoo PROMPTFOO_DISABLE_TELEMETRY=true promptfoo eval -c promptfooconfig.hello-world.yaml --env-file .env --no-cache --no-write --no-share",
+    "eval": "PROMPTFOO_CONFIG_DIR=.promptfoo PROMPTFOO_DISABLE_TELEMETRY=true promptfoo eval -c promptfooconfig.yaml --no-cache --no-share",
+    "eval:agents": "PROMPTFOO_CONFIG_DIR=.promptfoo PROMPTFOO_DISABLE_TELEMETRY=true promptfoo eval -c promptfooconfig.hello-world.yaml --env-file .env --no-cache --no-share",
+    "view": "PROMPTFOO_CONFIG_DIR=.promptfoo promptfoo view -y",
     "test:grader": "node --test \"src/*.test.js\"",
     "test": "npm run eval"
   },
