@@ -50,7 +50,7 @@ stripped) injected into its prompt, and reviews the `feature/push` diff.
 3. **Judge each planted issue.** The single review text is graded by **four `llm-rubric`
    assertions** — one per comment in `pr-622-review-fixes.md`. Each passes when the agent
    **identifies the problem and its location** (the exact fix wording is not required). The
-   judge is pinned to `anthropic:messages:claude-haiku-4-5`.
+   judge is pinned to `anthropic:messages:claude-haiku-4-5-20251001`.
 
 ### Run it
 

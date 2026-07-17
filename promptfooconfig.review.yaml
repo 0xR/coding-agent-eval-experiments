@@ -35,7 +35,7 @@ providers:
 # All model-graded assertions use one pinned judge so grading is stable.
 defaultTest:
   options:
-    provider: anthropic:messages:claude-haiku-4-5
+    provider: anthropic:messages:claude-haiku-4-5-20251001
 
 # One test per provider: the agent runs the review ONCE, and the four
 # assertions below all judge that single review output — one per planted
